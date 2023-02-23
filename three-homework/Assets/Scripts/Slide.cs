@@ -37,7 +37,10 @@ public class Slide : MonoBehaviour
     void Update()
     {
         Vector2 alongSurface = Vector2.Perpendicular(_groundNormal);
-
+        if (alongSurface.y > 0)
+        {
+            alongSurface *= -1;
+        }
         _targetVelocity = alongSurface * _speed;
     }
 
