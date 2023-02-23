@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +9,7 @@ public class Slide : MonoBehaviour
     [SerializeField] private float _gravityModifier = 1f;
     [SerializeField] private Vector2 _velocity;
     [SerializeField] private LayerMask _layerMask;
+    [SerializeField] private AnimationCurve _yAnimation;
     [SerializeField] private float _speed;
 
     private Rigidbody2D _rb2d;
@@ -18,23 +20,24 @@ public class Slide : MonoBehaviour
     private ContactFilter2D _contactFilter;
     private RaycastHit2D[] _hitBuffer = new RaycastHit2D[16];
     private List<RaycastHit2D> _hitBufferList = new List<RaycastHit2D>(16);
+    private bool _isJumping; 
 
     private const float MinMoveDistance = 0.001f;
     private const float ShellRadius = 0.01f;
 
-    void OnEnable()
+    private void OnEnable()
     {
         _rb2d = GetComponent<Rigidbody2D>();
     }
 
-    void Start()
+    private void Start()
     {
         _contactFilter.useTriggers = false;
         _contactFilter.SetLayerMask(_layerMask);
         _contactFilter.useLayerMask = true;
     }
 
-    void Update()
+    private void Update()
     {
         Vector2 alongSurface = Vector2.Perpendicular(_groundNormal);
         if (alongSurface.y > 0)
@@ -42,27 +45,34 @@ public class Slide : MonoBehaviour
             alongSurface *= -1;
         }
         _targetVelocity = alongSurface * _speed;
+        if (_grounded && _isJumping == false && Input.GetAxisRaw("Jump") != 0)
+        {
+            StartCoroutine(Jump(_targetVelocity, 0.3f));
+        }
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
-        _velocity += _gravityModifier * Physics2D.gravity * Time.deltaTime;
-        _velocity.x = _targetVelocity.x;
+        if (_isJumping == false)
+        {
+            _velocity += _gravityModifier * Physics2D.gravity * Time.deltaTime;
+            _velocity.x = _targetVelocity.x;
 
-        _grounded = false;
+            _grounded = false;
 
-        Vector2 deltaPosition = _velocity * Time.deltaTime;
-        Vector2 moveAlongGround = new Vector2(_groundNormal.y, -_groundNormal.x);
-        Vector2 move = moveAlongGround * deltaPosition.x;
+            Vector2 deltaPosition = _velocity * Time.deltaTime;
+            Vector2 moveAlongGround = new Vector2(_groundNormal.y, -_groundNormal.x);
+            Vector2 move = moveAlongGround * deltaPosition.x;
 
-        Movement(move, false);
+            Movement(move, false);
 
-        move = Vector2.up * deltaPosition.y;
+            move = Vector2.up * deltaPosition.y;
 
-        Movement(move, true);
+            Movement(move, true);
+        }
     }
 
-    void Movement(Vector2 move, bool yMovement)
+    private void Movement(Vector2 move, bool yMovement)
     {
         float distance = move.magnitude;
 
@@ -102,5 +112,24 @@ public class Slide : MonoBehaviour
         }
 
         _rb2d.position = _rb2d.position + move.normalized * distance;
+    }
+
+    private IEnumerator Jump(Vector2 direction, float duration)
+    {
+        var expiredSeconds = 0f;
+        var progress = 0f;
+        Vector2 startPosition = _rb2d.position;
+
+        _isJumping = true;
+
+        while (progress < 1)
+        {
+            expiredSeconds += Time.deltaTime;
+            progress = expiredSeconds / duration;
+            _rb2d.position = startPosition + new Vector2(progress, _yAnimation.Evaluate(progress));
+
+            yield return null;
+        }
+        _isJumping = false;
     }
 }
